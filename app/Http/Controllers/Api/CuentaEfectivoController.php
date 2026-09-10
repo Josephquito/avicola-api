@@ -77,9 +77,9 @@ class CuentaEfectivoController extends Controller
     }
 
     public function movimientos(CuentaEfectivo $cuentas_efectivo)
-{
+    {
     $entradas = ['aporte_capital', 'cobro', 'venta_aves', 'venta_huevos'];
-    $salidas = ['retiro_capital', 'pago', 'compra_muebles', 'compra_medicina', 'compra_alimento', 'compra_aves'];
+    $salidas = ['retiro_capital', 'pago', 'compra_muebles', 'compra_medicina', 'compra_alimento', 'compra_aves', 'comision_transferencia'];
 
     $movimientos = Movimiento::where(function ($q) use ($cuentas_efectivo) {
             $q->where('cuenta_efectivo_id', $cuentas_efectivo->id)
@@ -124,5 +124,5 @@ class CuentaEfectivoController extends Controller
     });
 
     return response()->json($resultado->reverse()->values());
-}
+    }
 }

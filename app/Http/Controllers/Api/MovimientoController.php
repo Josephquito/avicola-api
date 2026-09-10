@@ -75,29 +75,55 @@ class MovimientoController extends Controller
         return response()->json($movimiento->load(['cuentaEfectivo', 'socio:id,name']), 201);
     }
 
-    public function transferir(Request $request)
-    {
-        $data = $request->validate([
-            'fecha' => ['required', 'date'],
-            'monto' => ['required', 'numeric', 'min:0.01'],
-            'cuenta_efectivo_id' => ['required', 'exists:cuentas_efectivo,id'],
-            'cuenta_destino_id' => ['required', 'exists:cuentas_efectivo,id', 'different:cuenta_efectivo_id'],
-            'descripcion' => ['nullable', 'string'],
-        ]);
+public function transferir(Request $request)
+{
+    $data = $request->validate([
+        'fecha' => ['required', 'date'],
+        'monto' => ['required', 'numeric', 'min:0.01'],
+        'cuenta_efectivo_id' => ['required', 'exists:cuentas_efectivo,id'],
+        'cuenta_destino_id' => ['required', 'exists:cuentas_efectivo,id', 'different:cuenta_efectivo_id'],
+        'comision' => ['nullable', 'numeric', 'min:0.31', 'max:1.00'],
+        'descripcion' => ['nullable', 'string'],
+    ]);
 
-        $cuenta = CuentaEfectivo::find($data['cuenta_efectivo_id']);
-        if ($data['monto'] > $cuenta->saldoActual()) {
-            return response()->json(['message' => 'Saldo insuficiente en la cuenta de origen.'], 422);
-        }
+    $comision = $data['comision'] ?? 0;
+    $totalADescontar = $data['monto'] + $comision;
 
-        $movimiento = Movimiento::create([
-            ...$data,
-            'tipo' => 'transferencia',
+    $cuenta = CuentaEfectivo::find($data['cuenta_efectivo_id']);
+    if ($totalADescontar > $cuenta->saldoActual()) {
+        return response()->json([
+            'message' => 'Saldo insuficiente en la cuenta de origen (monto + comisión).',
+        ], 422);
+    }
+
+    $movimiento = Movimiento::create([
+        'tipo' => 'transferencia',
+        'fecha' => $data['fecha'],
+        'monto' => $data['monto'],
+        'cuenta_efectivo_id' => $data['cuenta_efectivo_id'],
+        'cuenta_destino_id' => $data['cuenta_destino_id'],
+        'descripcion' => $data['descripcion'] ?? null,
+        'user_id' => auth()->id(),
+    ]);
+
+    $movimientoComision = null;
+
+    if ($comision > 0) {
+        $movimientoComision = Movimiento::create([
+            'tipo' => 'comision_transferencia',
+            'fecha' => $data['fecha'],
+            'monto' => $comision,
+            'cuenta_efectivo_id' => $data['cuenta_efectivo_id'],
+            'descripcion' => "Comisión por transferencia #{$movimiento->id}",
             'user_id' => auth()->id(),
         ]);
-
-        return response()->json($movimiento->load(['cuentaEfectivo', 'cuentaDestino']), 201);
     }
+
+    return response()->json([
+        'movimiento' => $movimiento->load(['cuentaEfectivo', 'cuentaDestino']),
+        'comision' => $movimientoComision,
+    ], 201);
+}
 
     public function cobrar(Request $request)
     {
