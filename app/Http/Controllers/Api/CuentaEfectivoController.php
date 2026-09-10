@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\CuentaEfectivo;
 use Illuminate\Http\Request;
+use App\Models\Movimiento;
 
 class CuentaEfectivoController extends Controller
 {
@@ -74,4 +75,54 @@ class CuentaEfectivoController extends Controller
         'saldo_actual' => $cuentas_efectivo->saldoActual(),
     ]);
     }
+
+    public function movimientos(CuentaEfectivo $cuentas_efectivo)
+{
+    $entradas = ['aporte_capital', 'cobro', 'venta_aves', 'venta_huevos'];
+    $salidas = ['retiro_capital', 'pago', 'compra_muebles', 'compra_medicina', 'compra_alimento', 'compra_aves'];
+
+    $movimientos = Movimiento::where(function ($q) use ($cuentas_efectivo) {
+            $q->where('cuenta_efectivo_id', $cuentas_efectivo->id)
+              ->orWhere('cuenta_destino_id', $cuentas_efectivo->id);
+        })
+        ->with(['contacto:id,nombre', 'socio:id,name'])
+        ->orderBy('fecha')
+        ->orderBy('id')
+        ->get();
+
+    $saldo = 0;
+
+    $resultado = $movimientos->map(function ($mov) use (&$saldo, $entradas, $salidas, $cuentas_efectivo) {
+        $monto = (float) $mov->monto;
+        $signo = 0;
+
+        if ($mov->tipo === 'transferencia') {
+            if ($mov->cuenta_efectivo_id === $cuentas_efectivo->id) {
+                $signo = -1;
+            } elseif ($mov->cuenta_destino_id === $cuentas_efectivo->id) {
+                $signo = 1;
+            }
+        } elseif (in_array($mov->tipo, $entradas)) {
+            $signo = 1;
+        } elseif (in_array($mov->tipo, $salidas)) {
+            $signo = -1;
+        }
+
+        $saldo += $signo * $monto;
+
+        return [
+            'id' => $mov->id,
+            'tipo' => $mov->tipo,
+            'fecha' => $mov->fecha,
+            'monto' => $monto,
+            'signo' => $signo,
+            'descripcion' => $mov->descripcion,
+            'contacto' => $mov->contacto?->nombre,
+            'socio' => $mov->socio?->name,
+            'saldo_despues' => round($saldo, 2),
+        ];
+    });
+
+    return response()->json($resultado->reverse()->values());
+}
 }

@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('contactos', ContactoController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::apiResource('cuentas-efectivo', CuentaEfectivoController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('/cuentas-efectivo/{cuentas_efectivo}/saldo', [CuentaEfectivoController::class, 'saldo']);
+    Route::get('/cuentas-efectivo/{cuentas_efectivo}/movimientos', [CuentaEfectivoController::class, 'movimientos']);
     Route::apiResource('categorias', CategoriaController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::apiResource('unidades-medida', UnidadMedidaController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::apiResource('productos', ProductoController::class)->only(['index', 'store', 'update', 'destroy']);
