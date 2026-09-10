@@ -1,0 +1,11 @@
+services:
+    avicola-api:
+        build: .
+        container_name: avicola-api
+        restart: always
+        ports:
+            - "3007:8000"
+        env_file:
+            - .env
+        mem_limit: 512m
+        cpus: 0.5
