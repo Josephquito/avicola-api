@@ -23,7 +23,7 @@ class CuentaEfectivo extends Model
 public function saldoActual(): float
 {
     $entradasTipos = ['aporte_capital', 'cobro', 'venta_aves', 'venta_huevos'];
-    $salidasTipos = ['retiro_capital', 'pago', 'compra_muebles', 'compra_medicina', 'compra_alimento', 'compra_aves', 'comision_transferencia'];
+    $salidasTipos = ['retiro_capital', 'pago', 'compra_muebles', 'compra_medicina', 'compra_alimento', 'compra_aves', 'comision_transferencia', 'gasto_operativo'];
 
     $origen = Movimiento::where('cuenta_efectivo_id', $this->id)
         ->selectRaw(

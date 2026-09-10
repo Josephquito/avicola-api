@@ -34,6 +34,8 @@ class CuentaPendienteController extends Controller
             'contacto_id' => ['required', 'exists:contactos,id'],
             'monto_original' => ['required', 'numeric', 'min:0.01'],
             'fecha' => ['required', 'date'],
+            'es_recurrente' => ['sometimes', 'boolean'],
+            'frecuencia' => ['required_if:es_recurrente,true', 'nullable', 'in:mensual,trimestral,anual'],
         ]);
 
         $cuenta = CuentaPendiente::create([
@@ -42,5 +44,26 @@ class CuentaPendienteController extends Controller
         ]);
 
         return response()->json($cuenta->load('contacto'), 201);
+    }
+
+    public function update(Request $request, CuentaPendiente $cuenta_pendiente)
+    {
+        $data = $request->validate([
+            'monto_original' => ['sometimes', 'numeric', 'min:0.01'],
+            'fecha' => ['sometimes', 'date'],
+            'es_recurrente' => ['sometimes', 'boolean'],
+            'frecuencia' => ['sometimes', 'nullable', 'in:mensual,trimestral,anual'],
+        ]);
+
+        // Si se ajusta el monto original y la cuenta no tiene abonos todavía,
+        // el saldo pendiente se actualiza igual (para el caso de "recién
+        // generada automáticamente, ajusto el monto antes de que venza").
+        if (isset($data['monto_original']) && $cuenta_pendiente->saldo_pendiente == $cuenta_pendiente->monto_original) {
+            $data['saldo_pendiente'] = $data['monto_original'];
+        }
+
+        $cuenta_pendiente->update($data);
+
+        return response()->json($cuenta_pendiente->load('contacto'));
     }
 }

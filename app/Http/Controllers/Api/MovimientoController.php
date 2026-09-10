@@ -163,48 +163,112 @@ public function transferir(Request $request)
         ], 201);
     }
 
-    public function pagar(Request $request)
-    {
-        $data = $request->validate([
-            'fecha' => ['required', 'date'],
-            'monto' => ['required', 'numeric', 'min:0.01'],
-            'cuenta_efectivo_id' => ['required', 'exists:cuentas_efectivo,id'],
-            'cuenta_pendiente_id' => ['required', 'exists:cuentas_pendientes,id'],
-            'descripcion' => ['nullable', 'string'],
+public function pagar(Request $request)
+{
+    $data = $request->validate([
+        'fecha' => ['required', 'date'],
+        'monto' => ['required', 'numeric', 'min:0.01'],
+        'cuenta_efectivo_id' => ['required', 'exists:cuentas_efectivo,id'],
+        'cuenta_pendiente_id' => ['required', 'exists:cuentas_pendientes,id'],
+        'descripcion' => ['nullable', 'string'],
+    ]);
+
+    $cuentaPendiente = CuentaPendiente::find($data['cuenta_pendiente_id']);
+
+    if ($cuentaPendiente->tipo !== 'por_pagar') {
+        return response()->json(['message' => 'Esa cuenta pendiente no es una cuenta por pagar.'], 422);
+    }
+
+    if ($data['monto'] > $cuentaPendiente->saldo_pendiente) {
+        return response()->json(['message' => 'El monto pagado supera el saldo pendiente.'], 422);
+    }
+
+    $cuenta = CuentaEfectivo::find($data['cuenta_efectivo_id']);
+    if ($data['monto'] > $cuenta->saldoActual()) {
+        return response()->json(['message' => 'Saldo insuficiente en la cuenta seleccionada.'], 422);
+    }
+
+    $movimiento = Movimiento::create([
+        'tipo' => 'pago',
+        'fecha' => $data['fecha'],
+        'monto' => $data['monto'],
+        'cuenta_efectivo_id' => $data['cuenta_efectivo_id'],
+        'contacto_id' => $cuentaPendiente->contacto_id,
+        'descripcion' => $data['descripcion'] ?? null,
+        'user_id' => auth()->id(),
+    ]);
+
+    $cuentaPendiente->decrement('saldo_pendiente', $data['monto']);
+    $cuentaPendiente->refresh();
+
+    $siguienteCuenta = null;
+
+    if ($cuentaPendiente->estaSaldada() && $cuentaPendiente->es_recurrente) {
+        $siguienteCuenta = CuentaPendiente::create([
+            'tipo' => 'por_pagar',
+            'contacto_id' => $cuentaPendiente->contacto_id,
+            'monto_original' => $cuentaPendiente->monto_original,
+            'saldo_pendiente' => $cuentaPendiente->monto_original,
+            'fecha' => $cuentaPendiente->siguienteFecha(),
+            'es_recurrente' => true,
+            'frecuencia' => $cuentaPendiente->frecuencia,
         ]);
+    }
 
-        $cuentaPendiente = CuentaPendiente::find($data['cuenta_pendiente_id']);
+    return response()->json([
+        'movimiento' => $movimiento->load(['cuentaEfectivo', 'contacto']),
+        'cuenta_pendiente' => $cuentaPendiente,
+        'siguiente_cuenta_pendiente' => $siguienteCuenta,
+    ], 201);
+}
 
-        if ($cuentaPendiente->tipo !== 'por_pagar') {
-            return response()->json(['message' => 'Esa cuenta pendiente no es una cuenta por pagar.'], 422);
-        }
+public function gastoOperativo(Request $request)
+{
+    $data = $request->validate([
+        'fecha' => ['required', 'date'],
+        'monto' => ['required', 'numeric', 'min:0.01'],
+        'contacto_id' => ['required', 'exists:contactos,id'],
+        'estado' => ['required', 'in:contado,credito'],
+        'cuenta_efectivo_id' => ['required_if:estado,contado', 'nullable', 'exists:cuentas_efectivo,id'],
+        'descripcion' => ['required', 'string'],
+    ]);
 
-        if ($data['monto'] > $cuentaPendiente->saldo_pendiente) {
-            return response()->json(['message' => 'El monto pagado supera el saldo pendiente.'], 422);
-        }
-
+    if ($data['estado'] === 'contado') {
         $cuenta = CuentaEfectivo::find($data['cuenta_efectivo_id']);
         if ($data['monto'] > $cuenta->saldoActual()) {
             return response()->json(['message' => 'Saldo insuficiente en la cuenta seleccionada.'], 422);
         }
-
-        $movimiento = Movimiento::create([
-            'tipo' => 'pago',
-            'fecha' => $data['fecha'],
-            'monto' => $data['monto'],
-            'cuenta_efectivo_id' => $data['cuenta_efectivo_id'],
-            'contacto_id' => $cuentaPendiente->contacto_id,
-            'descripcion' => $data['descripcion'] ?? null,
-            'user_id' => auth()->id(),
-        ]);
-
-        $cuentaPendiente->decrement('saldo_pendiente', $data['monto']);
-
-        return response()->json([
-            'movimiento' => $movimiento->load(['cuentaEfectivo', 'contacto']),
-            'cuenta_pendiente' => $cuentaPendiente->fresh(),
-        ], 201);
     }
+
+    $movimiento = Movimiento::create([
+        'tipo' => 'gasto_operativo',
+        'fecha' => $data['fecha'],
+        'monto' => $data['monto'],
+        'contacto_id' => $data['contacto_id'],
+        'estado' => $data['estado'],
+        'cuenta_efectivo_id' => $data['estado'] === 'contado' ? $data['cuenta_efectivo_id'] : null,
+        'descripcion' => $data['descripcion'],
+        'user_id' => auth()->id(),
+    ]);
+
+    $cuentaPendiente = null;
+
+    if ($data['estado'] === 'credito') {
+        $cuentaPendiente = CuentaPendiente::create([
+            'tipo' => 'por_pagar',
+            'contacto_id' => $data['contacto_id'],
+            'monto_original' => $data['monto'],
+            'saldo_pendiente' => $data['monto'],
+            'movimiento_origen_id' => $movimiento->id,
+            'fecha' => $data['fecha'],
+        ]);
+    }
+
+    return response()->json([
+        'movimiento' => $movimiento->load(['cuentaEfectivo', 'contacto']),
+        'cuenta_pendiente' => $cuentaPendiente,
+    ], 201);
+}
 
 public function comprarMedicina(Request $request)
 {

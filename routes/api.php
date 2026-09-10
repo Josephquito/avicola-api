@@ -48,9 +48,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/movimientos/compra-aves', [MovimientoController::class, 'comprarAves']);
     Route::post('/movimientos/venta-aves', [MovimientoController::class, 'venderAves']);
     Route::post('/movimientos/venta-huevos', [MovimientoController::class, 'venderHuevos']);
-
+    Route::post('/movimientos/gasto-operativo', [MovimientoController::class, 'gastoOperativo']);
+    
     Route::get('/cuentas-pendientes', [CuentaPendienteController::class, 'index']);
     Route::post('/cuentas-pendientes', [CuentaPendienteController::class, 'store']);
+    Route::put('/cuentas-pendientes/{cuenta_pendiente}', [CuentaPendienteController::class, 'update']);
 
     Route::get('/stock-productos', [StockProductoController::class, 'index']);
     Route::get('/stock-productos/producto/{producto}', [StockProductoController::class, 'stockActual']);
