@@ -527,9 +527,10 @@ public function comprarAves(Request $request)
 
     $producto = Producto::with('categoria')->find($data['producto_id']);
 
-    if (! in_array($producto->categoria->nombre, ['Aves BB', 'Aves adultas'])) {
-        return response()->json(['message' => 'El producto debe pertenecer a la categoría Aves BB o Aves adultas.'], 422);
-    }
+ $error = $this->validarCategoriaProducto($data['producto_id'], 'Aves');
+if ($error) {
+    return response()->json(['message' => $error], 422);
+}
 
     if ($data['estado'] === 'contado') {
         $cuenta = CuentaEfectivo::find($data['cuenta_efectivo_id']);
