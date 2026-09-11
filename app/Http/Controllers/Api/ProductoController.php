@@ -10,6 +10,19 @@ use Illuminate\Http\Request;
 
 class ProductoController extends Controller
 {
+    /**
+     * Unidades específicas permitidas por categoría, más allá del tipo
+     * de medida genérico (ej. "Aves" es tipo 'conteo', pero solo tiene
+     * sentido venderlas por 'Unidad', nunca por 'Docena' o 'Caja').
+     * Las categorías que no aparecen aquí no tienen restricción extra
+     * (aceptan cualquier unidad compatible con su tipo de medida).
+     */
+    private const UNIDADES_ESPECIFICAS = [
+        'Aves' => ['Unidad'],
+        'Huevos' => ['Unidad'],
+        'Muebles y enseres' => ['Unidad', 'Caja', 'Funda'],
+    ];
+
     public function index()
     {
         return Producto::with(['categoria', 'unidad'])->orderBy('nombre')->get();
@@ -71,6 +84,11 @@ class ProductoController extends Controller
 
         if (! in_array($unidad->tipo_medida, $categoria->tipos_medida_permitidos)) {
             return "La unidad '{$unidad->nombre}' ({$unidad->tipo_medida}) no es compatible con la categoría '{$categoria->nombre}'.";
+        }
+
+        $unidadesEspecificas = self::UNIDADES_ESPECIFICAS[$categoria->nombre] ?? null;
+        if ($unidadesEspecificas !== null && ! in_array($unidad->nombre, $unidadesEspecificas)) {
+            return "La categoría '{$categoria->nombre}' solo admite: ".implode(', ', $unidadesEspecificas).'.';
         }
 
         return null;
