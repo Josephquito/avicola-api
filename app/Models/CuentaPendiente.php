@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 #[Fillable([
     'tipo',
     'contacto_id',
+    'concepto',
     'monto_original',
     'saldo_pendiente',
     'movimiento_origen_id',

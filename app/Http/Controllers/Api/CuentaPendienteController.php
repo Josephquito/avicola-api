@@ -32,6 +32,7 @@ class CuentaPendienteController extends Controller
         $data = $request->validate([
             'tipo' => ['required', 'in:por_cobrar,por_pagar'],
             'contacto_id' => ['required', 'exists:contactos,id'],
+            'concepto' => ['required', 'string', 'max:255'],
             'monto_original' => ['required', 'numeric', 'min:0.01'],
             'fecha' => ['required', 'date'],
             'es_recurrente' => ['sometimes', 'boolean'],
@@ -49,6 +50,7 @@ class CuentaPendienteController extends Controller
     public function update(Request $request, CuentaPendiente $cuenta_pendiente)
     {
         $data = $request->validate([
+            'concepto' => ['sometimes', 'string', 'max:255'],
             'monto_original' => ['sometimes', 'numeric', 'min:0.01'],
             'fecha' => ['sometimes', 'date'],
             'es_recurrente' => ['sometimes', 'boolean'],
