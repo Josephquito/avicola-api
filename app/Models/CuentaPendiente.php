@@ -9,13 +9,12 @@ use Illuminate\Database\Eloquent\Model;
 #[Fillable([
     'tipo',
     'contacto_id',
+    'recurrencia_id',
     'concepto',
     'monto_original',
     'saldo_pendiente',
     'movimiento_origen_id',
     'fecha',
-    'es_recurrente',
-    'frecuencia',
 ])]
 class CuentaPendiente extends Model
 {
@@ -29,7 +28,6 @@ class CuentaPendiente extends Model
             'fecha' => 'date',
             'monto_original' => 'decimal:2',
             'saldo_pendiente' => 'decimal:2',
-            'es_recurrente' => 'boolean',
         ];
     }
 
@@ -43,6 +41,16 @@ class CuentaPendiente extends Model
         return $this->belongsTo(Movimiento::class, 'movimiento_origen_id');
     }
 
+    public function recurrencia()
+    {
+        return $this->belongsTo(Recurrencia::class);
+    }
+
+    public function movimientos()
+    {
+        return $this->hasMany(Movimiento::class);
+    }
+
     public function estaSaldada(): bool
     {
         return $this->saldo_pendiente <= 0;
@@ -51,16 +59,6 @@ class CuentaPendiente extends Model
     public function estaVencida(): bool
     {
         return ! $this->estaSaldada() && $this->fecha->isPast();
-    }
-
-    public function siguienteFecha(): \Illuminate\Support\Carbon
-    {
-        return match ($this->frecuencia) {
-            'mensual' => $this->fecha->copy()->addMonth(),
-            'trimestral' => $this->fecha->copy()->addMonths(3),
-            'anual' => $this->fecha->copy()->addYear(),
-            default => $this->fecha->copy()->addMonth(),
-        };
     }
 
     protected function activityDescription(string $action): string
