@@ -10,7 +10,8 @@ class CuentaPendienteController extends Controller
 {
     public function index(Request $request)
     {
-        $query = CuentaPendiente::with(['contacto', 'movimientoOrigen'])->latest('fecha');
+        $query = CuentaPendiente::with(['contacto', 'movimientoOrigen'])
+            ->orderBy('fecha', 'asc');
 
         if ($request->has('tipo')) {
             $query->where('tipo', $request->input('tipo'));
@@ -24,11 +25,16 @@ class CuentaPendienteController extends Controller
             $query->where('saldo_pendiente', '>', 0);
         }
 
-        // Por defecto, este listado solo muestra cuentas de único concepto
-        // (sin recurrencia) — las cuotas de una recurrencia se consultan
-        // vía GET /recurrencias/{id}. ?incluir_recurrentes=1 para verlas
-        // mezcladas si en algún momento hace falta.
-        if (! $request->boolean('incluir_recurrentes')) {
+        if ($request->boolean('incluir_recurrentes')) {
+            // Cuentas de único concepto, o cuotas de una recurrencia
+            // que sigue ACTIVA. Las cuotas de recurrencias dadas de
+            // baja quedan fuera del listado principal (solo se ven
+            // desde el detalle de esa recurrencia).
+            $query->where(function ($q) {
+                $q->whereNull('recurrencia_id')
+                    ->orWhereHas('recurrencia', fn ($r) => $r->where('activa', true));
+            });
+        } else {
             $query->whereNull('recurrencia_id');
         }
 
@@ -61,10 +67,6 @@ class CuentaPendienteController extends Controller
             'fecha' => ['sometimes', 'date'],
         ]);
 
-        // Sirve tanto para cuentas de único concepto como para editar la
-        // fecha/monto de la CUOTA ACTUAL de una recurrencia (ej. "cambió
-        // la fecha de pago este mes por tal situación") — no toca la
-        // recurrencia en sí ni las cuotas futuras.
         if (isset($data['monto_original']) && $cuenta_pendiente->saldo_pendiente == $cuenta_pendiente->monto_original) {
             $data['saldo_pendiente'] = $data['monto_original'];
         }
