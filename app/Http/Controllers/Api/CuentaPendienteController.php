@@ -75,4 +75,23 @@ class CuentaPendienteController extends Controller
 
         return response()->json($cuenta_pendiente->load('contacto'));
     }
+
+        public function destroy(CuentaPendiente $cuenta_pendiente)
+    {
+        if ($cuenta_pendiente->recurrencia_id !== null) {
+            return response()->json([
+                'message' => 'Esta cuota pertenece a una recurrencia. Elimina o suspende la recurrencia completa desde su detalle.',
+            ], 422);
+        }
+
+        if (bccomp($cuenta_pendiente->saldo_pendiente, $cuenta_pendiente->monto_original, 2) !== 0) {
+            return response()->json([
+                'message' => 'No se puede eliminar: ya tiene abonos registrados.',
+            ], 422);
+        }
+
+        $cuenta_pendiente->delete();
+
+        return response()->json(null, 204);
+    }
 }

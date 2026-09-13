@@ -53,10 +53,12 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::get('/cuentas-pendientes', [CuentaPendienteController::class, 'index']);
     Route::post('/cuentas-pendientes', [CuentaPendienteController::class, 'store']);
+    Route::delete('/cuentas-pendientes/{cuenta_pendiente}', [CuentaPendienteController::class, 'destroy']);
     Route::put('/cuentas-pendientes/{cuenta_pendiente}', [CuentaPendienteController::class, 'update']);
 
     Route::apiResource('recurrencias', RecurrenciaController::class)->only(['index', 'store', 'show', 'update']);
     Route::post('/recurrencias/{recurrencia}/desactivar', [RecurrenciaController::class, 'desactivar']);
+    Route::delete('/recurrencias/{recurrencia}', [RecurrenciaController::class, 'destroy']);
 
     Route::get('/stock-productos', [StockProductoController::class, 'index']);
     Route::get('/stock-productos/producto/{producto}', [StockProductoController::class, 'stockActual']);

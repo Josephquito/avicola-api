@@ -96,4 +96,28 @@ class RecurrenciaController extends Controller
 
         return response()->json($recurrencia->load('contacto'));
     }
+
+        public function destroy(Recurrencia $recurrencia)
+    {
+        $cuotas = $recurrencia->cuentasPendientes()->get();
+
+        if ($cuotas->count() > 1) {
+            return response()->json([
+                'message' => 'No se puede eliminar: ya tiene historial de cuotas. Usa "Suspender" en su lugar.',
+            ], 422);
+        }
+
+        $cuota = $cuotas->first();
+
+        if ($cuota && bccomp($cuota->saldo_pendiente, $cuota->monto_original, 2) !== 0) {
+            return response()->json([
+                'message' => 'No se puede eliminar: ya tiene abonos registrados. Usa "Suspender" en su lugar.',
+            ], 422);
+        }
+
+        $cuota?->delete();
+        $recurrencia->delete();
+
+        return response()->json(null, 204);
+    }
 }
