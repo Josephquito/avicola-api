@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\CategoriaController;
 use App\Http\Controllers\Api\ContactoController;
 use App\Http\Controllers\Api\CuentaEfectivoController;
 use App\Http\Controllers\Api\CuentaPendienteController;
-use App\Http\Controllers\Api\RecurrenciaController;
 use App\Http\Controllers\Api\MovimientoController;
 use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\StockProductoController;
@@ -53,12 +52,9 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::get('/cuentas-pendientes', [CuentaPendienteController::class, 'index']);
     Route::post('/cuentas-pendientes', [CuentaPendienteController::class, 'store']);
-    Route::delete('/cuentas-pendientes/{cuenta_pendiente}', [CuentaPendienteController::class, 'destroy']);
     Route::put('/cuentas-pendientes/{cuenta_pendiente}', [CuentaPendienteController::class, 'update']);
-
-    Route::apiResource('recurrencias', RecurrenciaController::class)->only(['index', 'store', 'show', 'update']);
-    Route::post('/recurrencias/{recurrencia}/desactivar', [RecurrenciaController::class, 'desactivar']);
-    Route::delete('/recurrencias/{recurrencia}', [RecurrenciaController::class, 'destroy']);
+    Route::delete('/cuentas-pendientes/{cuenta_pendiente}', [CuentaPendienteController::class, 'destroy']);
+    Route::get('/cuentas-pendientes/{cuenta_pendiente}/serie', [CuentaPendienteController::class, 'serie']);
 
     Route::get('/stock-productos', [StockProductoController::class, 'index']);
     Route::get('/stock-productos/producto/{producto}', [StockProductoController::class, 'stockActual']);

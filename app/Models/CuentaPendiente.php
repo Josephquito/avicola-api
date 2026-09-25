@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 #[Fillable([
     'tipo',
     'contacto_id',
-    'recurrencia_id',
+    'serie_id',
     'concepto',
     'monto_original',
     'saldo_pendiente',
@@ -39,11 +39,6 @@ class CuentaPendiente extends Model
     public function movimientoOrigen()
     {
         return $this->belongsTo(Movimiento::class, 'movimiento_origen_id');
-    }
-
-    public function recurrencia()
-    {
-        return $this->belongsTo(Recurrencia::class);
     }
 
     public function movimientos()

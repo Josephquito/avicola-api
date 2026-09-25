@@ -12,6 +12,7 @@ use App\Models\SacoAlimento;
 use App\Models\Lote;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class MovimientoController extends Controller
 {
@@ -144,6 +145,9 @@ public function cobrar(Request $request)
         'cuenta_efectivo_id' => ['required', 'exists:cuentas_efectivo,id'],
         'cuenta_pendiente_id' => ['required', 'exists:cuentas_pendientes,id'],
         'descripcion' => ['nullable', 'string'],
+        'recordar_pago' => ['sometimes', 'boolean'],
+        'fecha_siguiente' => ['required_if:recordar_pago,true', 'nullable', 'date', 'after_or_equal:today'],
+        'monto_referencial_siguiente' => ['required_if:recordar_pago,true', 'nullable', 'numeric', 'min:0.01'],
     ]);
 
     $cuentaPendiente = CuentaPendiente::find($data['cuenta_pendiente_id']);
@@ -152,31 +156,46 @@ public function cobrar(Request $request)
         return response()->json(['message' => 'Esa cuenta pendiente no es una cuenta por cobrar.'], 422);
     }
 
-    if ($data['monto'] > $cuentaPendiente->saldo_pendiente) {
-        return response()->json(['message' => 'El monto abonado supera el saldo pendiente.'], 422);
+    if ($cuentaPendiente->estaSaldada()) {
+        return response()->json(['message' => 'Esta cuenta ya está saldada.'], 422);
     }
 
-    $movimiento = Movimiento::create([
-        'tipo' => 'cobro',
-        'fecha' => $data['fecha'],
-        'monto' => $data['monto'],
-        'cuenta_efectivo_id' => $data['cuenta_efectivo_id'],
-        'cuenta_pendiente_id' => $cuentaPendiente->id,
-        'contacto_id' => $cuentaPendiente->contacto_id,
-        'descripcion' => $data['descripcion'] ?? null,
-        'user_id' => auth()->id(),
-    ]);
+    return DB::transaction(function () use ($data, $cuentaPendiente) {
+        $movimiento = Movimiento::create([
+            'tipo' => 'cobro',
+            'fecha' => $data['fecha'],
+            'monto' => $data['monto'],
+            'cuenta_efectivo_id' => $data['cuenta_efectivo_id'],
+            'cuenta_pendiente_id' => $cuentaPendiente->id,
+            'contacto_id' => $cuentaPendiente->contacto_id,
+            'descripcion' => $data['descripcion'] ?? null,
+            'user_id' => auth()->id(),
+        ]);
 
-    $cuentaPendiente->decrement('saldo_pendiente', $data['monto']);
-    $cuentaPendiente->refresh();
+        // El monto es referencial: cualquier pago salda la cuenta por
+        // completo, sin importar si fue de más o de menos.
+        $cuentaPendiente->update(['saldo_pendiente' => 0]);
 
-    $siguienteCuenta = $this->generarSiguienteCuotaSiAplica($cuentaPendiente);
+        $siguienteCuenta = null;
 
-    return response()->json([
-        'movimiento' => $movimiento->load(['cuentaEfectivo', 'contacto']),
-        'cuenta_pendiente' => $cuentaPendiente,
-        'siguiente_cuenta_pendiente' => $siguienteCuenta,
-    ], 201);
+        if ($data['recordar_pago'] ?? false) {
+            $siguienteCuenta = CuentaPendiente::create([
+                'tipo' => $cuentaPendiente->tipo,
+                'contacto_id' => $cuentaPendiente->contacto_id,
+                'serie_id' => $cuentaPendiente->serie_id,
+                'concepto' => $cuentaPendiente->concepto,
+                'monto_original' => $data['monto_referencial_siguiente'],
+                'saldo_pendiente' => $data['monto_referencial_siguiente'],
+                'fecha' => $data['fecha_siguiente'],
+            ]);
+        }
+
+        return response()->json([
+            'movimiento' => $movimiento->load(['cuentaEfectivo', 'contacto']),
+            'cuenta_pendiente' => $cuentaPendiente->fresh(),
+            'siguiente_cuenta_pendiente' => $siguienteCuenta,
+        ], 201);
+    });
 }
 
 public function pagar(Request $request)
@@ -187,6 +206,9 @@ public function pagar(Request $request)
         'cuenta_efectivo_id' => ['required', 'exists:cuentas_efectivo,id'],
         'cuenta_pendiente_id' => ['required', 'exists:cuentas_pendientes,id'],
         'descripcion' => ['nullable', 'string'],
+        'recordar_pago' => ['sometimes', 'boolean'],
+        'fecha_siguiente' => ['required_if:recordar_pago,true', 'nullable', 'date', 'after_or_equal:today'],
+        'monto_referencial_siguiente' => ['required_if:recordar_pago,true', 'nullable', 'numeric', 'min:0.01'],
     ]);
 
     $cuentaPendiente = CuentaPendiente::find($data['cuenta_pendiente_id']);
@@ -195,8 +217,8 @@ public function pagar(Request $request)
         return response()->json(['message' => 'Esa cuenta pendiente no es una cuenta por pagar.'], 422);
     }
 
-    if ($data['monto'] > $cuentaPendiente->saldo_pendiente) {
-        return response()->json(['message' => 'El monto pagado supera el saldo pendiente.'], 422);
+    if ($cuentaPendiente->estaSaldada()) {
+        return response()->json(['message' => 'Esta cuenta ya está saldada.'], 422);
     }
 
     $cuenta = CuentaEfectivo::find($data['cuenta_efectivo_id']);
@@ -204,29 +226,41 @@ public function pagar(Request $request)
         return response()->json(['message' => 'Saldo insuficiente en la cuenta seleccionada.'], 422);
     }
 
-    $movimiento = Movimiento::create([
-        'tipo' => 'pago',
-        'fecha' => $data['fecha'],
-        'monto' => $data['monto'],
-        'cuenta_efectivo_id' => $data['cuenta_efectivo_id'],
-        'cuenta_pendiente_id' => $cuentaPendiente->id,
-        'contacto_id' => $cuentaPendiente->contacto_id,
-        'descripcion' => $data['descripcion'] ?? null,
-        'user_id' => auth()->id(),
-    ]);
+    return DB::transaction(function () use ($data, $cuentaPendiente) {
+        $movimiento = Movimiento::create([
+            'tipo' => 'pago',
+            'fecha' => $data['fecha'],
+            'monto' => $data['monto'],
+            'cuenta_efectivo_id' => $data['cuenta_efectivo_id'],
+            'cuenta_pendiente_id' => $cuentaPendiente->id,
+            'contacto_id' => $cuentaPendiente->contacto_id,
+            'descripcion' => $data['descripcion'] ?? null,
+            'user_id' => auth()->id(),
+        ]);
 
-    $cuentaPendiente->decrement('saldo_pendiente', $data['monto']);
-    $cuentaPendiente->refresh();
+        $cuentaPendiente->update(['saldo_pendiente' => 0]);
 
-    $siguienteCuenta = $this->generarSiguienteCuotaSiAplica($cuentaPendiente);
+        $siguienteCuenta = null;
 
-    return response()->json([
-        'movimiento' => $movimiento->load(['cuentaEfectivo', 'contacto']),
-        'cuenta_pendiente' => $cuentaPendiente,
-        'siguiente_cuenta_pendiente' => $siguienteCuenta,
-    ], 201);
+        if ($data['recordar_pago'] ?? false) {
+            $siguienteCuenta = CuentaPendiente::create([
+                'tipo' => $cuentaPendiente->tipo,
+                'contacto_id' => $cuentaPendiente->contacto_id,
+                'serie_id' => $cuentaPendiente->serie_id,
+                'concepto' => $cuentaPendiente->concepto,
+                'monto_original' => $data['monto_referencial_siguiente'],
+                'saldo_pendiente' => $data['monto_referencial_siguiente'],
+                'fecha' => $data['fecha_siguiente'],
+            ]);
+        }
+
+        return response()->json([
+            'movimiento' => $movimiento->load(['cuentaEfectivo', 'contacto']),
+            'cuenta_pendiente' => $cuentaPendiente->fresh(),
+            'siguiente_cuenta_pendiente' => $siguienteCuenta,
+        ], 201);
+    });
 }
-
 private function generarSiguienteCuotaSiAplica(CuentaPendiente $cuentaPendiente): ?CuentaPendiente
 {
     if (! $cuentaPendiente->estaSaldada() || $cuentaPendiente->recurrencia_id === null) {
