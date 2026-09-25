@@ -147,7 +147,6 @@ public function cobrar(Request $request)
         'descripcion' => ['nullable', 'string'],
         'recordar_pago' => ['sometimes', 'boolean'],
         'fecha_siguiente' => ['required_if:recordar_pago,true', 'nullable', 'date', 'after_or_equal:today'],
-        'monto_referencial_siguiente' => ['required_if:recordar_pago,true', 'nullable', 'numeric', 'min:0.01'],
     ]);
 
     $cuentaPendiente = CuentaPendiente::find($data['cuenta_pendiente_id']);
@@ -172,8 +171,6 @@ public function cobrar(Request $request)
             'user_id' => auth()->id(),
         ]);
 
-        // El monto es referencial: cualquier pago salda la cuenta por
-        // completo, sin importar si fue de más o de menos.
         $cuentaPendiente->update(['saldo_pendiente' => 0]);
 
         $siguienteCuenta = null;
@@ -184,8 +181,8 @@ public function cobrar(Request $request)
                 'contacto_id' => $cuentaPendiente->contacto_id,
                 'serie_id' => $cuentaPendiente->serie_id,
                 'concepto' => $cuentaPendiente->concepto,
-                'monto_original' => $data['monto_referencial_siguiente'],
-                'saldo_pendiente' => $data['monto_referencial_siguiente'],
+                'monto_original' => $data['monto'],
+                'saldo_pendiente' => $data['monto'],
                 'fecha' => $data['fecha_siguiente'],
             ]);
         }
@@ -208,7 +205,6 @@ public function pagar(Request $request)
         'descripcion' => ['nullable', 'string'],
         'recordar_pago' => ['sometimes', 'boolean'],
         'fecha_siguiente' => ['required_if:recordar_pago,true', 'nullable', 'date', 'after_or_equal:today'],
-        'monto_referencial_siguiente' => ['required_if:recordar_pago,true', 'nullable', 'numeric', 'min:0.01'],
     ]);
 
     $cuentaPendiente = CuentaPendiente::find($data['cuenta_pendiente_id']);
@@ -248,8 +244,8 @@ public function pagar(Request $request)
                 'contacto_id' => $cuentaPendiente->contacto_id,
                 'serie_id' => $cuentaPendiente->serie_id,
                 'concepto' => $cuentaPendiente->concepto,
-                'monto_original' => $data['monto_referencial_siguiente'],
-                'saldo_pendiente' => $data['monto_referencial_siguiente'],
+                'monto_original' => $data['monto'],
+                'saldo_pendiente' => $data['monto'],
                 'fecha' => $data['fecha_siguiente'],
             ]);
         }
@@ -261,6 +257,7 @@ public function pagar(Request $request)
         ], 201);
     });
 }
+
 private function generarSiguienteCuotaSiAplica(CuentaPendiente $cuentaPendiente): ?CuentaPendiente
 {
     if (! $cuentaPendiente->estaSaldada() || $cuentaPendiente->recurrencia_id === null) {
