@@ -42,4 +42,10 @@ class LoteController extends Controller
 
         return response()->json($lote->fresh());
     }
+    
+    public function marcarProduccion(Lote $lote)
+    {
+    $lote->update(['etapa' => 'produccion']);
+    return response()->json($lote->fresh());
+    }
 }

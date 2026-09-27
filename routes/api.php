@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\StockProductoController;
 use App\Http\Controllers\Api\SacoAlimentoController;
 use App\Http\Controllers\Api\UnidadMedidaController;
 use App\Http\Controllers\Api\LoteController;
+use App\Http\Controllers\Api\HuevoStatsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -60,6 +61,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/producciones/{id}', [ProduccionController::class, 'show']);
     Route::delete('/producciones/{id}', [ProduccionController::class, 'destroy']);
     Route::post('/producciones/{id}/anular', [ProduccionController::class, 'anular']);
+    Route::get('/huevos/resumen', [HuevoStatsController::class, 'resumen']);
 
     Route::get('/cuentas-pendientes', [CuentaPendienteController::class, 'index']);
     Route::post('/cuentas-pendientes', [CuentaPendienteController::class, 'store']);
@@ -78,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/lotes', [LoteController::class, 'index']);
     Route::post('/lotes/{lote}/corregir-sexo', [LoteController::class, 'corregirSexo']);
+    Route::post('/lotes/{lote}/marcar-produccion', [LoteController::class, 'marcarProduccion']);
 
     Route::middleware('is_admin')->group(function () {
         Route::apiResource('admin/users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
