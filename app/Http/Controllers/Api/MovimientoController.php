@@ -31,6 +31,14 @@ class MovimientoController extends Controller
         $query->where('cuenta_pendiente_id', $request->input('cuenta_pendiente_id'));
     }
 
+    if ($request->filled('fecha_desde')) {
+        $query->whereDate('fecha', '>=', $request->input('fecha_desde'));
+    }
+
+    if ($request->filled('fecha_hasta')) {
+        $query->whereDate('fecha', '<=', $request->input('fecha_hasta'));
+    }
+
     return $query->latest('fecha')->paginate(30);
     }
 
