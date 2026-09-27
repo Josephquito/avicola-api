@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
     'unidad_id',
     'cantidad',
     'tipo_movimiento',
-    'movimiento_id',
+    'movimiento_item_id',
     'fecha',
     'descripcion',
 ])]
@@ -39,9 +39,9 @@ class StockProducto extends Model
         return $this->belongsTo(UnidadMedida::class, 'unidad_id');
     }
 
-    public function movimiento()
+    public function movimientoItem()
     {
-        return $this->belongsTo(Movimiento::class);
+        return $this->belongsTo(MovimientoItem::class);
     }
 
     protected function activityDescription(string $action): string

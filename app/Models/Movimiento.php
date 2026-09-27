@@ -13,11 +13,14 @@ use Illuminate\Database\Eloquent\Model;
     'descripcion',
     'cuenta_efectivo_id',
     'cuenta_destino_id',
+    'cuenta_pendiente_id',
     'socio_id',
     'contacto_id',
     'estado',
-    'cantidad_huevos',
     'user_id',
+    'anulado',
+    'anulado_en',
+    'anulado_motivo',
 ])]
 class Movimiento extends Model
 {
@@ -28,6 +31,8 @@ class Movimiento extends Model
         return [
             'fecha' => 'date',
             'monto' => 'decimal:2',
+            'anulado' => 'boolean',
+            'anulado_en' => 'datetime',
         ];
     }
 
@@ -39,6 +44,11 @@ class Movimiento extends Model
     public function cuentaDestino()
     {
         return $this->belongsTo(CuentaEfectivo::class, 'cuenta_destino_id');
+    }
+
+    public function cuentaPendiente()
+    {
+        return $this->belongsTo(CuentaPendiente::class);
     }
 
     public function socio()
@@ -54,6 +64,11 @@ class Movimiento extends Model
     public function usuario()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function items()
+    {
+        return $this->hasMany(MovimientoItem::class);
     }
 
     protected function activityDescription(string $action): string

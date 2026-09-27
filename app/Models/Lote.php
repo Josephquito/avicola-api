@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
     'edad_inicial_dias',
     'fecha_ingreso',
     'costo_total',
-    'movimiento_id',
+    'movimiento_item_id',
     'lote_origen_id',
     'activo',
 ])]
@@ -37,9 +37,9 @@ class Lote extends Model
         return $this->belongsTo(Producto::class);
     }
 
-    public function movimiento()
+    public function movimientoItem()
     {
-        return $this->belongsTo(Movimiento::class);
+        return $this->belongsTo(MovimientoItem::class);
     }
 
     public function loteOrigen()

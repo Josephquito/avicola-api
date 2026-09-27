@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Model;
     'fecha_compra',
     'fecha_inicio_uso',
     'fecha_fin_uso',
-    'movimiento_id',
+    'movimiento_item_id',
 ])]
 class SacoAlimento extends Model
 {
@@ -42,9 +42,9 @@ class SacoAlimento extends Model
         return $this->belongsTo(UnidadMedida::class, 'unidad_id');
     }
 
-    public function movimiento()
+    public function movimientoItem()
     {
-        return $this->belongsTo(Movimiento::class);
+        return $this->belongsTo(MovimientoItem::class);
     }
 
     public function iniciarUso(): void

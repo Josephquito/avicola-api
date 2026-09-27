@@ -8,12 +8,14 @@ use App\Http\Controllers\Api\ContactoController;
 use App\Http\Controllers\Api\CuentaEfectivoController;
 use App\Http\Controllers\Api\CuentaPendienteController;
 use App\Http\Controllers\Api\MovimientoController;
+use App\Http\Controllers\Api\Movimientos\CompraController;
+use App\Http\Controllers\Api\Movimientos\VentaController;
+use App\Http\Controllers\Api\Movimientos\ProduccionController;
 use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\StockProductoController;
 use App\Http\Controllers\Api\SacoAlimentoController;
 use App\Http\Controllers\Api\UnidadMedidaController;
 use App\Http\Controllers\Api\LoteController;
-use App\Http\Controllers\Api\ProduccionHuevoController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -42,14 +44,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/movimientos/transferencia', [MovimientoController::class, 'transferir']);
     Route::post('/movimientos/cobro', [MovimientoController::class, 'cobrar']);
     Route::post('/movimientos/pago', [MovimientoController::class, 'pagar']);
-    Route::post('/movimientos/compra-muebles', [MovimientoController::class, 'comprarMuebles']);
-    Route::post('/movimientos/compra-medicina', [MovimientoController::class, 'comprarMedicina']);
-    Route::post('/movimientos/compra-alimento', [MovimientoController::class, 'comprarAlimento']);
-    Route::post('/movimientos/compra-aves', [MovimientoController::class, 'comprarAves']);
-    Route::post('/movimientos/venta-aves', [MovimientoController::class, 'venderAves']);
-    Route::post('/movimientos/venta-huevos', [MovimientoController::class, 'venderHuevos']);
     Route::post('/movimientos/gasto-operativo', [MovimientoController::class, 'gastoOperativo']);
-    
+
+    Route::post('/compras', [CompraController::class, 'store']);
+    Route::get('/compras/{id}', [CompraController::class, 'show']);
+    Route::delete('/compras/{id}', [CompraController::class, 'destroy']);
+    Route::post('/compras/{id}/anular', [CompraController::class, 'anular']);
+
+    Route::post('/ventas', [VentaController::class, 'store']);
+    Route::get('/ventas/{id}', [VentaController::class, 'show']);
+    Route::delete('/ventas/{id}', [VentaController::class, 'destroy']);
+    Route::post('/ventas/{id}/anular', [VentaController::class, 'anular']);
+
+    Route::post('/producciones', [ProduccionController::class, 'store']);
+    Route::get('/producciones/{id}', [ProduccionController::class, 'show']);
+    Route::delete('/producciones/{id}', [ProduccionController::class, 'destroy']);
+    Route::post('/producciones/{id}/anular', [ProduccionController::class, 'anular']);
+
     Route::get('/cuentas-pendientes', [CuentaPendienteController::class, 'index']);
     Route::post('/cuentas-pendientes', [CuentaPendienteController::class, 'store']);
     Route::put('/cuentas-pendientes/{cuenta_pendiente}', [CuentaPendienteController::class, 'update']);
@@ -67,10 +78,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/lotes', [LoteController::class, 'index']);
     Route::post('/lotes/{lote}/corregir-sexo', [LoteController::class, 'corregirSexo']);
-
-    Route::get('/producciones-huevos', [ProduccionHuevoController::class, 'index']);
-    Route::post('/producciones-huevos', [ProduccionHuevoController::class, 'store']);
-    Route::get('/producciones-huevos/stock', [ProduccionHuevoController::class, 'stockActual']);
 
     Route::middleware('is_admin')->group(function () {
         Route::apiResource('admin/users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
