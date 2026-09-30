@@ -12,6 +12,12 @@ use RuntimeException;
 /// según la categoría del producto. FacturaService llama a procesar()
 /// al crear cada línea, y a revertir() al eliminar/anular una factura
 /// que aún no tiene nada "consumido" encima.
+///
+/// Toda categoría con SALIDA (venta) valida disponibilidad AQUÍ DENTRO
+/// de la transacción, no solo en el Request — el Request ve el estado
+/// al momento de la petición; esta capa ve el estado real justo antes
+/// de comprometer el cambio, evitando condiciones de carrera entre
+/// ventas simultáneas.
 class MovimientoItemProcessor
 {
     public function procesar(MovimientoItem $item, string $tipoMovimiento): void
@@ -23,7 +29,7 @@ class MovimientoItemProcessor
             'Medicina' => $this->procesarStockSimple($item, $tipoMovimiento),
             'Alimento' => $this->procesarAlimento($item, $tipoMovimiento),
             'Aves' => $this->procesarAve($item, $tipoMovimiento),
-            'Huevos' => null, // no toca tabla propia — el stock de huevos se calcula sumando/restando movimiento_items
+            'Huevos' => $this->procesarHuevo($item, $tipoMovimiento),
             default => throw new RuntimeException("Categoría no soportada para facturación: {$categoria}"),
         };
     }
@@ -36,7 +42,7 @@ class MovimientoItemProcessor
             'Muebles y enseres', 'Medicina' => StockProducto::where('movimiento_item_id', $item->id)->delete(),
             'Alimento' => $this->revertirAlimento($item),
             'Aves' => $this->revertirAve($item),
-            'Huevos' => null,
+            'Huevos' => null, // sin tabla propia — el stock se recalcula solo al borrar la línea
             default => null,
         };
     }
@@ -88,7 +94,10 @@ class MovimientoItemProcessor
     private function procesarAve(MovimientoItem $item, string $tipoMovimiento): void
     {
         if ($tipoMovimiento === 'venta') {
-            $lote = Lote::findOrFail($item->lote_id);
+            // lockForUpdate: bloquea la fila del lote hasta que termine
+            // esta transacción, así una segunda venta simultánea del
+            // mismo lote espera en vez de leer un número ya obsoleto.
+            $lote = Lote::where('id', $item->lote_id)->lockForUpdate()->firstOrFail();
 
             $cantidadGallinas = $item->cantidad_gallinas ?? 0;
             $cantidadGallos = $item->cantidad_gallos ?? 0;
@@ -127,10 +136,6 @@ class MovimientoItemProcessor
 
     private function revertirAve(MovimientoItem $item): void
     {
-        // Solo se revierte si es una venta y el lote no fue tocado después,
-        // o si es una compra/producción que creó un lote intacto — esa
-        // validación de "¿está intacto?" vive en FacturaService, antes de
-        // llamar a revertir() en absoluto.
         if ($item->lote_id !== null) {
             // era una venta: devolver las aves al lote
             $lote = Lote::find($item->lote_id);
@@ -144,5 +149,39 @@ class MovimientoItemProcessor
 
         // era compra/producción: borrar el lote que esta línea creó
         Lote::where('movimiento_item_id', $item->id)->delete();
+    }
+
+    private function procesarHuevo(MovimientoItem $item, string $tipoMovimiento): void
+    {
+        if ($tipoMovimiento !== 'venta') {
+            // producción: no hay tabla propia que tocar — el stock se
+            // calcula sumando/restando movimiento_items directamente.
+            return;
+        }
+
+        $disponible = $this->stockHuevosDisponible($item->producto_id, excluirItemId: $item->id);
+
+        if ($item->cantidad_huevos > $disponible) {
+            throw new RuntimeException("No hay suficiente stock de huevos para esta venta (disponible: {$disponible}).");
+        }
+    }
+
+    /// Stock actual de huevos de un producto: total producido menos
+    /// total vendido, solo contando movimientos NO anulados.
+    /// $excluirItemId excluye la línea que se está procesando ahora
+    /// mismo (ya se guardó en la base antes de llegar aquí, así que
+    /// sin excluirla se contaría a sí misma como "ya vendida").
+    private function stockHuevosDisponible(int $productoId, ?int $excluirItemId = null): int
+    {
+        $producido = MovimientoItem::where('producto_id', $productoId)
+            ->whereHas('movimiento', fn ($q) => $q->where('tipo', 'produccion')->where('anulado', false))
+            ->sum('cantidad_huevos');
+
+        $vendido = MovimientoItem::where('producto_id', $productoId)
+            ->when($excluirItemId, fn ($q) => $q->where('id', '!=', $excluirItemId))
+            ->whereHas('movimiento', fn ($q) => $q->where('tipo', 'venta')->where('anulado', false))
+            ->sum('cantidad_huevos');
+
+        return (int) ($producido - $vendido);
     }
 }
