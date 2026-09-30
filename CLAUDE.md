@@ -1,3 +1,49 @@
+# CRM Avícola — Backend
+
+## Proyecto
+API REST del ERP de una granja avícola (Flutter en `../frontend`). Cubre finanzas (compras/ventas por facturas con líneas, cuentas de efectivo/banco, cuentas pendientes), inventario (aves por lote, alimento en sacos, medicina, muebles), producción de huevos, contactos (proveedor/cliente unificado) y socios. Un solo administrador. Todo movimiento de dinero respeta doble partida y ACID — nunca movimientos huérfanos. Toda acción queda en bitácora (`Auditable`). Estado: MVP en desarrollo activo.
+
+## Stack
+- PHP ^8.3 (runtime 8.5), Laravel ^13, Sanctum (token Bearer)
+- Pest 5, Pint, Laravel Boost (dev)
+- SQLite en dev; Docker (nginx + supervisord) para despliegue — `docker-compose.yml`
+
+## Comandos
+- `composer run dev` — servidor + cola + logs
+- `php artisan test --compact` — tests
+- `vendor/bin/pint --dirty --format agent` — formato (obligatorio tras tocar PHP)
+- `php artisan route:list --path=api` — endpoints
+- `php artisan migrate --seed` — esquema + admin + categorías + unidades
+
+## Estructura
+- `routes/api.php` — todas las rutas (prefijo `/api`, `auth:sanctum`).
+- `app/Http/` — controllers, requests, middleware. Índice de endpoints: [app/Http/CLAUDE.md](app/Http/CLAUDE.md).
+- `app/Models/` — entidades + `Auditable`. Ver [app/Models/CLAUDE.md](app/Models/CLAUDE.md).
+- `app/Services/Facturacion/` — flujo atómico de facturas e inventario. Ver [app/Services/CLAUDE.md](app/Services/CLAUDE.md).
+- `database/` — migraciones, seeders. Detalle de capas: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Reglas para Claude
+- No tocar `../frontend` salvo pedido explícito. Si un cambio de API rompe el front, avisar.
+- Antes de crear algo: revisar si ya existe (modelo, método, service). Sin duplicidad.
+- Toda feature nueva sigue el patrón existente tomando un recurso hecho como referencia ([docs/CONVENTIONS.md](docs/CONVENTIONS.md)).
+- No sobreingeniar: lo considerablemente aceptable, ni más ni menos.
+- Dinero/inventario: doble partida y ACID (`DB::transaction`), validar disponibilidad dentro de la transacción. Nada de movimientos huérfanos.
+- Toda acción relevante queda en bitácora: modelo nuevo → `Auditable` + `activityDescription()`.
+- Lógica de negocio solo en backend; el front no la replica.
+- Alcance por tarea: un error o feature a la vez. No expandir el trabajo más allá de lo pedido.
+- Docs: al cambiar comportamiento, actualizar el doc que corresponda (endpoint → `app/Http/CLAUDE.md`, valor de dominio → `docs/DOMAIN.md`).
+- Este bloque va **fuera** de `<laravel-boost-guidelines>` para que `boost:update` no lo pise.
+
+## Docs relacionados
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — capas, API, flujo de facturas, saldos, auditoría
+- [docs/CONVENTIONS.md](docs/CONVENTIONS.md) — convenciones de código
+- [docs/DOMAIN.md](docs/DOMAIN.md) — glosario y valores exactos de BD
+- [docs/BACKLOG.md](docs/BACKLOG.md) — funciones grandes
+- [docs/TAREAS.md](docs/TAREAS.md) — pendientes puntuales y hallazgos
+- [docs/RETOMAR.md](docs/RETOMAR.md) — qué se hizo último
+- [docs/changelog/](docs/changelog/) — historial de cambios de enfoque
+- [app/Http/CLAUDE.md](app/Http/CLAUDE.md), [app/Models/CLAUDE.md](app/Models/CLAUDE.md), [app/Services/CLAUDE.md](app/Services/CLAUDE.md)
+
 <laravel-boost-guidelines>
 === foundation rules ===
 
